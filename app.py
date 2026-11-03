@@ -4,9 +4,7 @@ import pandas as pd
 import joblib
 import plotly.graph_objects as go
 
-# ==================================================
 # PAGE CONFIGURATION
-# ==================================================
 st.set_page_config(
     page_title="FraudShield | Credit Card Security",
     page_icon="🛡️",
@@ -14,9 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==================================================
 # LOAD MODEL AND DATASET
-# ==================================================
 model = joblib.load("models/fraud_model.pkl")
 data = pd.read_csv("data/credit_card_fraud_10k.csv")
 
@@ -25,19 +21,21 @@ fraud = int(data["is_fraud"].sum())
 genuine = total - fraud
 fraud_rate = (fraud / total) * 100
 
-# ==================================================
 # CUSTOM CSS
-# ==================================================
 st.markdown("""
 <style>
 .stApp {
     background: #08111f;
-    color: #e8f0fc;
+    color: #f1f5ff !important;
 }
 
 [data-testid="stSidebar"] {
     background: #0e1b2d;
-    border-right: 1px solid #263b56;
+    border-right: 1px solid #365474;
+}
+
+[data-testid="stSidebar"] * {
+    color: #e8f0fc !important;
 }
 
 .block-container {
@@ -46,58 +44,96 @@ st.markdown("""
     padding-bottom: 3rem;
 }
 
-h1, h2, h3 {
-    color: #f1f6ff !important;
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
+    font-weight: 700 !important;
 }
 
-p, label {
-    color: #b4c5d9;
+p, label, .stMarkdown {
+    color: #d5e2f2 !important;
+}
+
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: #c5d5e8 !important;
 }
 
 div[data-testid="stMetric"] {
     background: linear-gradient(145deg, #152943, #102035);
-    border: 1px solid #29415e;
+    border: 1px solid #365474;
     border-radius: 15px;
     padding: 20px;
 }
 
-div[data-testid="stMetricLabel"] {
-    color: #a9bdd5;
+div[data-testid="stMetricLabel"],
+div[data-testid="stMetricLabel"] p {
+    color: #e0eaf7 !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
 }
 
-div[data-testid="stMetricValue"] {
-    color: #40c8ee;
+div[data-testid="stMetricValue"],
+div[data-testid="stMetricValue"] div {
+    color: #55dcff !important;
+    font-size: 28px !important;
+    font-weight: 700 !important;
+}
+
+div[data-testid="stMetricDelta"] {
+    color: #d5e2f2 !important;
 }
 
 div[data-testid="stForm"] {
     background: #11233a;
-    border: 1px solid #29415e;
+    border: 1px solid #365474;
     border-radius: 16px;
     padding: 22px;
 }
 
-.stButton button, .stFormSubmitButton button {
+.stSelectbox label,
+.stNumberInput label,
+.stSlider label {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+.stSelectbox div[data-baseweb="select"],
+.stNumberInput input {
+    color: #ffffff !important;
+}
+
+.stButton button,
+.stFormSubmitButton button {
     background: linear-gradient(90deg, #087eae, #315eea);
-    color: white;
+    color: #ffffff !important;
     border: none;
     border-radius: 10px;
     min-height: 45px;
-    font-weight: 600;
+    font-weight: 700;
+}
+
+.stButton button:hover,
+.stFormSubmitButton button:hover {
+    border: 1px solid #55dcff;
+    color: #ffffff !important;
+}
+
+div[data-testid="stAlert"] {
+    color: #ffffff !important;
 }
 
 hr {
-    border-color: #263b56;
+    border-color: #365474 !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ==================================================
-# SIDEBAR
-# ==================================================
+
+# SIDEBAR NAVIGATION
 with st.sidebar:
+
     st.markdown("# 🛡️ FraudShield")
     st.caption("SMART TRANSACTION SECURITY")
-
     st.divider()
 
     page = st.radio(
@@ -106,14 +142,12 @@ with st.sidebar:
     )
 
     st.divider()
-
     st.caption("MACHINE LEARNING POWERED")
     st.caption("Credit Card Security System")
     st.caption("Version 1.0")
 
-# ==================================================
+
 # MAIN HEADER
-# ==================================================
 st.markdown("# 🛡️ FraudShield")
 st.markdown("### Credit Card Fraud Intelligence Platform")
 
@@ -124,14 +158,15 @@ st.caption(
 
 st.divider()
 
+
 # ==================================================
 # DASHBOARD PAGE
 # ==================================================
+
 if page == "Dashboard":
 
     st.subheader("📊 System Overview")
 
-    # KPI CARDS
     c1, c2, c3, c4 = st.columns(4)
 
     c1.metric("Total Transactions", f"{total:,}")
@@ -142,12 +177,11 @@ if page == "Dashboard":
     st.write("")
     st.divider()
 
-    # TRANSACTION ANALYTICS
     st.subheader("Transaction Analytics")
 
     left, right = st.columns(2, gap="large")
 
-    # DONUT CHART
+    # TRANSACTION DISTRIBUTION
     with left:
 
         st.markdown("#### Transaction Distribution")
@@ -188,7 +222,7 @@ if page == "Dashboard":
             key="transaction_donut"
         )
 
-    # MERCHANT CATEGORY CHART
+    # MERCHANT ANALYSIS
     with right:
 
         st.markdown("#### Merchant Category Analysis")
@@ -261,13 +295,12 @@ if page == "Dashboard":
         "Random Forest | Held-out test set | 2,000 transactions"
     )
 
-    # CONFUSION MATRIX AND MODEL COMPARISON
+    # MODEL EVALUATION
     st.divider()
     st.subheader("📈 Model Evaluation")
 
     left, right = st.columns(2, gap="large")
 
-    # CONFUSION MATRIX
     with left:
 
         st.markdown("#### Random Forest Confusion Matrix")
@@ -314,11 +347,9 @@ if page == "Dashboard":
             key="confusion_matrix"
         )
 
-        st.caption(
-            "TP: 25 | TN: 1970 | FP: 0 | FN: 5"
-        )
+        st.caption("TP: 25 | TN: 1970 | FP: 0 | FN: 5")
 
-    # MODEL COMPARISON
+    # ALGORITHM COMPARISON
     with right:
 
         st.markdown("#### Algorithm Comparison")
@@ -351,9 +382,7 @@ if page == "Dashboard":
                 title="Score (%)",
                 gridcolor="#263b56"
             ),
-            xaxis=dict(
-                showgrid=False
-            ),
+            xaxis=dict(showgrid=False),
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e8f0fc"),
@@ -375,9 +404,11 @@ if page == "Dashboard":
         "Comparison metrics are from the recorded held-out test results."
     )
 
+
 # ==================================================
 # FRAUD DETECTION PAGE
 # ==================================================
+
 elif page == "Fraud Detection":
 
     st.subheader("🔍 Transaction Risk Analysis")
@@ -447,100 +478,111 @@ elif page == "Fraud Detection":
             "🔎 Analyze Transaction"
         )
 
+    # INPUT VALIDATION AND PREDICTION
     if submitted:
 
-        input_data = pd.DataFrame([{
-            "amount": amount,
-            "transaction_hour": hour,
-            "merchant_category": merchant,
-            "foreign_transaction": int(foreign == "Yes"),
-            "location_mismatch": int(mismatch == "Yes"),
-            "device_trust_score": trust,
-            "velocity_last_24h": velocity,
-            "cardholder_age": age
-        }])
+        if amount <= 0:
 
-        prediction = model.predict(input_data)[0]
+            st.error(
+                "Transaction amount must be greater than zero."
+            )
 
-        probability = float(
-            model.predict_proba(input_data)[0][1]
-        )
+        else:
 
-        st.divider()
-        st.subheader("Prediction Result")
+            input_data = pd.DataFrame([{
+                "amount": amount,
+                "transaction_hour": hour,
+                "merchant_category": merchant,
+                "foreign_transaction": int(foreign == "Yes"),
+                "location_mismatch": int(mismatch == "Yes"),
+                "device_trust_score": trust,
+                "velocity_last_24h": velocity,
+                "cardholder_age": age
+            }])
 
-        result_col, gauge_col = st.columns(2)
+            prediction = model.predict(input_data)[0]
 
-        with result_col:
+            probability = float(
+                model.predict_proba(input_data)[0][1]
+            )
 
-            if prediction == 1:
+            st.divider()
+            st.subheader("Prediction Result")
 
-                st.error("🚨 Potential Fraud Detected")
+            result_col, gauge_col = st.columns(2)
 
-                st.write(
-                    "The model classified this transaction as potentially fraudulent."
+            with result_col:
+
+                if prediction == 1:
+
+                    st.error("🚨 Potential Fraud Detected")
+
+                    st.write(
+                        "The model classified this transaction as potentially fraudulent."
+                    )
+
+                else:
+
+                    st.success("✅ Genuine Transaction")
+
+                    st.write(
+                        "The model classified this transaction as genuine."
+                    )
+
+                st.metric(
+                    "Fraud Probability",
+                    f"{probability * 100:.2f}%"
                 )
 
-            else:
+            # FRAUD RISK GAUGE
+            with gauge_col:
 
-                st.success("✅ Genuine Transaction")
-
-                st.write(
-                    "The model classified this transaction as genuine."
+                gauge = go.Figure(
+                    go.Indicator(
+                        mode="gauge+number",
+                        value=probability * 100,
+                        number={"suffix": "%"},
+                        title={"text": "Fraud Risk Score"},
+                        gauge={
+                            "axis": {"range": [0, 100]},
+                            "bar": {"color": "#31c6db"},
+                            "steps": [
+                                {
+                                    "range": [0, 50],
+                                    "color": "#173a43"
+                                },
+                                {
+                                    "range": [50, 100],
+                                    "color": "#493047"
+                                }
+                            ]
+                        }
+                    )
                 )
 
-            st.metric(
-                "Fraud Probability",
-                f"{probability * 100:.2f}%"
-            )
-
-        # FRAUD PROBABILITY GAUGE
-        with gauge_col:
-
-            gauge = go.Figure(
-                go.Indicator(
-                    mode="gauge+number",
-                    value=probability * 100,
-                    number={"suffix": "%"},
-                    title={"text": "Fraud Risk Score"},
-                    gauge={
-                        "axis": {"range": [0, 100]},
-                        "bar": {"color": "#31c6db"},
-                        "steps": [
-                            {
-                                "range": [0, 50],
-                                "color": "#173a43"
-                            },
-                            {
-                                "range": [50, 100],
-                                "color": "#493047"
-                            }
-                        ]
-                    }
+                gauge.update_layout(
+                    height=300,
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#e8f0fc"),
+                    margin=dict(t=45, b=15, l=20, r=20)
                 )
+
+                st.plotly_chart(
+                    gauge,
+                    use_container_width=True,
+                    config={"displayModeBar": False}
+                )
+
+            st.caption(
+                "This model prediction is an analytical aid, "
+                "not a final financial decision."
             )
 
-            gauge.update_layout(
-                height=300,
-                paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e8f0fc"),
-                margin=dict(t=45, b=15, l=20, r=20)
-            )
-
-            st.plotly_chart(
-                gauge,
-                use_container_width=True,
-                config={"displayModeBar": False}
-            )
-
-        st.caption(
-            "This model prediction is an analytical aid, "
-            "not a final financial decision."
-        )
 
 # ==================================================
 # ABOUT PROJECT PAGE
 # ==================================================
+
 elif page == "About Project":
 
     st.subheader("📌 About FraudShield")
@@ -555,7 +597,6 @@ elif page == "About Project":
     """)
 
     st.divider()
-
     st.markdown("### Technology Stack")
 
     tech1, tech2, tech3 = st.columns(3)
@@ -565,7 +606,6 @@ elif page == "About Project":
     tech3.info("Streamlit\n\nPlotly\n\nJoblib")
 
     st.divider()
-
     st.markdown("### Dataset Summary")
 
     d1, d2, d3 = st.columns(3)
@@ -581,11 +621,10 @@ elif page == "About Project":
         "identify potentially fraudulent credit card transactions."
     )
 
-# ==================================================
+
 # FOOTER
-# ==================================================
 st.divider()
 
 st.caption(
-    "🛡️ FraudShield | Credit Card Fraud Detection | Academic ML Project"
+    "🛡️ FraudShield | Credit Card Fraud Detection | ML Project"
 )

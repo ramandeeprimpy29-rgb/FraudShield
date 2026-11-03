@@ -2,9 +2,11 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import plotly.express as px
 import plotly.graph_objects as go
+from pathlib import Path
 
-# PAGE CONFIGURATION
+# Page setup
 st.set_page_config(
     page_title="FraudShield | Credit Card Security",
     page_icon="🛡️",
@@ -12,619 +14,574 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# LOAD MODEL AND DATASET
-model = joblib.load("models/fraud_model.pkl")
-data = pd.read_csv("data/credit_card_fraud_10k.csv")
+# Load model and dataset
+BASE_DIR = Path(__file__).resolve().parent
 
-total = len(data)
-fraud = int(data["is_fraud"].sum())
-genuine = total - fraud
-fraud_rate = (fraud / total) * 100
+@st.cache_resource
+def load_model():
+    return joblib.load(BASE_DIR / "models" / "fraud_model.pkl")
 
-# CUSTOM CSS
+@st.cache_data
+def load_data():
+    return pd.read_csv(BASE_DIR / "data" / "credit_card_fraud_10k.csv")
+
+model = load_model()
+df = load_data()
+
+# Set page style
 st.markdown("""
 <style>
 .stApp {
-    background: #08111f;
-    color: #f1f5ff !important;
+    background-color: #080F1E;
+    color: #FFFFFF;
+    .block-container {
+    padding-top: 0rem !important;
+    padding-bottom: 1rem !important;
+}
+
+[data-testid="stHeader"] {
+    background: transparent;
+}
+
+[data-testid="stToolbar"] {
+    right: 1rem;
+}
 }
 
 [data-testid="stSidebar"] {
-    background: #0e1b2d;
-    border-right: 1px solid #365474;
+    background-color: #111D32;
 }
 
-[data-testid="stSidebar"] * {
-    color: #e8f0fc !important;
+h1, h2, h3, h4, p, label, span {
+    color: #FFFFFF;
 }
 
-.block-container {
-    max-width: 1450px;
-    padding-top: 2rem;
-    padding-bottom: 3rem;
+.main-title {
+    color: #FFFFFF;
+    font-size: 34px;
+    font-weight: 800;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    color: #ffffff !important;
-    font-weight: 700 !important;
+.subtitle {
+    color: #C5D2E5;
+    font-size: 15px;
 }
 
-p, label, .stMarkdown {
-    color: #d5e2f2 !important;
+.metric-card {
+    background-color: #14243B;
+    border: 1px solid #29415F;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
 }
 
-[data-testid="stCaptionContainer"],
-[data-testid="stCaptionContainer"] p {
-    color: #c5d5e8 !important;
+.metric-label {
+    color: #C5D2E5;
+    font-size: 14px;
 }
 
-div[data-testid="stMetric"] {
-    background: linear-gradient(145deg, #152943, #102035);
-    border: 1px solid #365474;
-    border-radius: 15px;
-    padding: 20px;
+.metric-value {
+    color: #FFFFFF;
+    font-size: 27px;
+    font-weight: bold;
 }
 
-div[data-testid="stMetricLabel"],
-div[data-testid="stMetricLabel"] p {
-    color: #e0eaf7 !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
+.section-card {
+    background-color: #14243B;
+    border: 1px solid #29415F;
+    border-radius: 12px;
+    padding: 18px;
 }
 
-div[data-testid="stMetricValue"],
-div[data-testid="stMetricValue"] div {
-    color: #55dcff !important;
-    font-size: 28px !important;
-    font-weight: 700 !important;
-}
-
-div[data-testid="stMetricDelta"] {
-    color: #d5e2f2 !important;
-}
-
-div[data-testid="stForm"] {
-    background: #11233a;
-    border: 1px solid #365474;
-    border-radius: 16px;
-    padding: 22px;
-}
-
-.stSelectbox label,
-.stNumberInput label,
-.stSlider label {
-    color: #ffffff !important;
-    font-weight: 600 !important;
-}
-
-.stSelectbox div[data-baseweb="select"],
-.stNumberInput input {
-    color: #ffffff !important;
-}
-
-.stButton button,
-.stFormSubmitButton button {
-    background: linear-gradient(90deg, #087eae, #315eea);
-    color: #ffffff !important;
+div.stButton > button {
+    background-color: #087EBC;
+    color: white;
     border: none;
-    border-radius: 10px;
-    min-height: 45px;
-    font-weight: 700;
+    border-radius: 8px;
+    font-weight: bold;
+    padding: 10px 20px;
 }
 
-.stButton button:hover,
-.stFormSubmitButton button:hover {
-    border: 1px solid #55dcff;
-    color: #ffffff !important;
+div.stButton > button:hover {
+    background-color: #09669A;
+    color: white;
 }
 
-div[data-testid="stAlert"] {
-    color: #ffffff !important;
+.stTextInput input, .stNumberInput input {
+    background-color: #14243B;
+    color: white;
+}
+
+div[data-baseweb="select"] > div {
+    background-color: #14243B;
+    color: white;
+}
+
+.stRadio label, .stCheckbox label {
+    color: white !important;
 }
 
 hr {
-    border-color: #365474 !important;
+    border-color: #29415F;
 }
 </style>
 """, unsafe_allow_html=True)
 
-
-# SIDEBAR NAVIGATION
+# Sidebar menu
 with st.sidebar:
-
-    st.markdown("# 🛡️ FraudShield")
-    st.caption("SMART TRANSACTION SECURITY")
+    st.markdown("## 🛡️ FraudShield")
+    st.caption("Credit Card Fraud Detection")
     st.divider()
 
     page = st.radio(
-        "NAVIGATION",
-        ["Dashboard", "Fraud Detection", "About Project"]
+        "Navigation",
+        [
+            "📊 Dashboard",
+            "🔍 Live Prediction",
+            "📘 About Project"
+        ]
     )
 
     st.divider()
-    st.caption("MACHINE LEARNING POWERED")
-    st.caption("Credit Card Security System")
-    st.caption("Version 1.0")
+    st.markdown("### Project Information")
+    st.write("Machine Learning Based")
+    st.write("Credit Card Security System")
 
-
-# MAIN HEADER
-st.markdown("# 🛡️ FraudShield")
-st.markdown("### Credit Card Fraud Intelligence Platform")
-
-st.caption(
-    "Monitor transactions. Detect suspicious patterns. "
-    "Protect financial activity."
+# Main heading
+st.markdown(
+    '<div class="main-title">FraudShield</div>',
+    unsafe_allow_html=True
 )
+st.markdown(
+    '<div class="subtitle">Intelligent Credit Card Fraud Detection System</div>',
+    unsafe_allow_html=True
+)
+st.write("")
 
-st.divider()
+# Dashboard
+if page == "📊 Dashboard":
 
+    st.subheader("📊 Project Dashboard")
+    st.write("Overview of the transaction dataset and model performance.")
 
-# ==================================================
-# DASHBOARD PAGE
-# ==================================================
+    total_transactions = len(df)
+    fraud_transactions = int(df["is_fraud"].sum())
+    genuine_transactions = total_transactions - fraud_transactions
+    fraud_percentage = (fraud_transactions / total_transactions) * 100
 
-if page == "Dashboard":
+    # Show dataset details
+    col1, col2, col3, col4 = st.columns(4)
 
-    st.subheader("📊 System Overview")
+    with col1:
+        st.markdown(
+            f"""<div class="metric-card">
+            <div class="metric-label">Total Transactions</div>
+            <div class="metric-value">{total_transactions:,}</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
 
-    c1, c2, c3, c4 = st.columns(4)
+    with col2:
+        st.markdown(
+            f"""<div class="metric-card">
+            <div class="metric-label">Genuine Transactions</div>
+            <div class="metric-value">{genuine_transactions:,}</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
 
-    c1.metric("Total Transactions", f"{total:,}")
-    c2.metric("Fraud Detected", f"{fraud:,}")
-    c3.metric("Genuine Transactions", f"{genuine:,}")
-    c4.metric("Fraud Rate", f"{fraud_rate:.2f}%")
+    with col3:
+        st.markdown(
+            f"""<div class="metric-card">
+            <div class="metric-label">Fraud Transactions</div>
+            <div class="metric-value">{fraud_transactions:,}</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
+
+    with col4:
+        st.markdown(
+            f"""<div class="metric-card">
+            <div class="metric-label">Fraud Percentage</div>
+            <div class="metric-value">{fraud_percentage:.2f}%</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
 
     st.write("")
     st.divider()
 
-    st.subheader("Transaction Analytics")
+    # Show charts
+    st.subheader("Transaction Analysis")
 
-    left, right = st.columns(2, gap="large")
+    chart1, chart2 = st.columns(2)
 
-    # TRANSACTION DISTRIBUTION
-    with left:
-
+    with chart1:
         st.markdown("#### Transaction Distribution")
 
-        donut = go.Figure(
-            data=[
-                go.Pie(
-                    labels=["Genuine", "Fraud"],
-                    values=[genuine, fraud],
-                    hole=0.72,
-                    marker=dict(
-                        colors=["#22c7a9", "#f05b78"],
-                        line=dict(color="#08111f", width=3)
-                    ),
-                    textinfo="percent",
-                    hovertemplate=(
-                        "%{label}: %{value:,} transactions"
-                        "<extra></extra>"
-                    )
-                )
-            ]
+        distribution = pd.DataFrame({
+            "Transaction Type": ["Genuine", "Fraud"],
+            "Count": [genuine_transactions, fraud_transactions]
+        })
+
+        fig = px.pie(
+            distribution,
+            names="Transaction Type",
+            values="Count",
+            hole=0.55,
+            color="Transaction Type",
+            color_discrete_map={
+                "Genuine": "#08BFA5",
+                "Fraud": "#F04452"
+            }
         )
 
-        donut.update_layout(
-            height=380,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#e8f0fc"),
-            margin=dict(t=25, b=35, l=20, r=20),
-            legend=dict(orientation="h", y=-0.08),
-            showlegend=True
+        fig.update_layout(
+            paper_bgcolor="#14243B",
+            plot_bgcolor="#14243B",
+            font_color="white",
+            legend_title_text="Transaction Type"
         )
 
-        st.plotly_chart(
-            donut,
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="transaction_donut"
-        )
+        st.plotly_chart(fig, use_container_width=True)
 
-    # MERCHANT ANALYSIS
-    with right:
-
-        st.markdown("#### Merchant Category Analysis")
+    with chart2:
+        st.markdown("#### Transactions by Merchant Category")
 
         merchant_counts = (
-            data["merchant_category"]
+            df["merchant_category"]
             .value_counts()
-            .sort_values()
+            .reset_index()
+        )
+        merchant_counts.columns = ["Merchant Category", "Count"]
+
+        fig = px.bar(
+            merchant_counts,
+            x="Merchant Category",
+            y="Count",
+            color="Count",
+            color_continuous_scale="Blues"
         )
 
-        merchant_chart = go.Figure(
-            go.Bar(
-                x=merchant_counts.values,
-                y=merchant_counts.index,
-                orientation="h",
-                marker=dict(
-                    color=merchant_counts.values,
-                    colorscale=[
-                        [0, "#315eea"],
-                        [1, "#31c6db"]
-                    ]
-                ),
-                text=merchant_counts.values,
-                textposition="outside",
-                hovertemplate=(
-                    "%{y}: %{x:,} transactions"
-                    "<extra></extra>"
-                )
-            )
+        fig.update_layout(
+            paper_bgcolor="#14243B",
+            plot_bgcolor="#14243B",
+            font_color="white",
+            xaxis_title="Merchant Category",
+            yaxis_title="Number of Transactions"
         )
 
-        merchant_chart.update_layout(
-            height=380,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#e8f0fc"),
-            margin=dict(t=25, b=35, l=20, r=45),
-            xaxis=dict(
-                title="Number of Transactions",
-                showgrid=True,
-                gridcolor="#263b56",
-                zeroline=False
-            ),
-            yaxis=dict(
-                title="",
-                showgrid=False
-            ),
-            showlegend=False
-        )
+        st.plotly_chart(fig, use_container_width=True)
 
-        st.plotly_chart(
-            merchant_chart,
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="merchant_chart"
-        )
-
-    # MODEL PERFORMANCE
     st.divider()
-    st.subheader("🤖 Model Performance")
+
+    # Model performance
+    st.subheader("Model Performance")
+
+    st.caption(
+        "The following values are the recorded Random Forest test results."
+    )
 
     m1, m2, m3, m4 = st.columns(4)
 
-    m1.metric("Accuracy", "99.75%")
-    m2.metric("Precision", "100%")
-    m3.metric("Recall", "83.33%")
-    m4.metric("F1 Score", "90.91%")
+    performance = [
+        ("Accuracy", "99.75%"),
+        ("Precision", "100%"),
+        ("Recall", "83.33%"),
+        ("F1 Score", "90.91%")
+    ]
 
-    st.caption(
-        "Random Forest | Held-out test set | 2,000 transactions"
-    )
+    for col, (label, value) in zip(
+        [m1, m2, m3, m4], performance
+    ):
+        with col:
+            st.markdown(
+                f"""<div class="metric-card">
+                <div class="metric-label">{label}</div>
+                <div class="metric-value">{value}</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
 
-    # MODEL EVALUATION
-    st.divider()
-    st.subheader("📈 Model Evaluation")
-
-    left, right = st.columns(2, gap="large")
+    st.write("")
+    left, right = st.columns(2)
 
     with left:
+        st.markdown("#### Confusion Matrix")
 
-        st.markdown("#### Random Forest Confusion Matrix")
+        confusion = [[1970, 0], [5, 25]]
 
-        matrix = go.Figure(
-            data=go.Heatmap(
-                z=[
-                    [1970, 0],
-                    [5, 25]
-                ],
-                x=[
-                    "Predicted Genuine",
-                    "Predicted Fraud"
-                ],
-                y=[
-                    "Actual Genuine",
-                    "Actual Fraud"
-                ],
-                colorscale=[
-                    [0, "#172b43"],
-                    [1, "#17a589"]
-                ],
-                text=[
-                    [1970, 0],
-                    [5, 25]
-                ],
-                texttemplate="%{text}",
-                showscale=False
-            )
+        fig = px.imshow(
+            confusion,
+            text_auto=True,
+            labels={
+                "x": "Predicted",
+                "y": "Actual",
+                "color": "Transactions"
+            },
+            x=["Genuine", "Fraud"],
+            y=["Genuine", "Fraud"],
+            color_continuous_scale="Blues"
         )
 
-        matrix.update_layout(
-            height=350,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#e8f0fc"),
-            margin=dict(t=25, b=65, l=20, r=20)
+        fig.update_layout(
+            paper_bgcolor="#14243B",
+            plot_bgcolor="#14243B",
+            font_color="white"
         )
 
-        st.plotly_chart(
-            matrix,
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="confusion_matrix"
-        )
+        st.plotly_chart(fig, use_container_width=True)
 
-        st.caption("TP: 25 | TN: 1970 | FP: 0 | FN: 5")
-
-    # ALGORITHM COMPARISON
     with right:
-
         st.markdown("#### Algorithm Comparison")
 
-        comparison = go.Figure()
+        comparison = pd.DataFrame({
+            "Algorithm": ["Logistic Regression", "Random Forest"],
+            "Accuracy": [95.80, 99.75],
+            "Precision": [25.89, 100.00],
+            "Recall": [96.67, 83.33],
+            "F1 Score": [40.85, 90.91]
+        })
 
-        comparison.add_trace(
-            go.Bar(
-                name="Logistic Regression",
-                x=["Accuracy", "Precision", "Recall", "F1 Score"],
-                y=[95.80, 25.89, 96.67, 40.85],
-                marker_color="#818cf8"
-            )
-        )
-
-        comparison.add_trace(
-            go.Bar(
-                name="Random Forest",
-                x=["Accuracy", "Precision", "Recall", "F1 Score"],
-                y=[99.75, 100, 83.33, 90.91],
-                marker_color="#22c7a9"
-            )
-        )
-
-        comparison.update_layout(
-            barmode="group",
-            height=350,
-            yaxis=dict(
-                range=[0, 110],
-                title="Score (%)",
-                gridcolor="#263b56"
-            ),
-            xaxis=dict(showgrid=False),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="#e8f0fc"),
-            legend=dict(
-                orientation="h",
-                y=-0.28
-            ),
-            margin=dict(t=25, b=80, l=20, r=20)
-        )
-
-        st.plotly_chart(
+        fig = px.bar(
             comparison,
-            use_container_width=True,
-            config={"displayModeBar": False},
-            key="model_comparison"
+            x="Algorithm",
+            y=["Accuracy", "Precision", "Recall", "F1 Score"],
+            barmode="group",
+            color_discrete_sequence=[
+                "#19B5FE",
+                "#9B59B6",
+                "#08BFA5",
+                "#F39C12"
+            ]
         )
 
-    st.caption(
-        "Comparison metrics are from the recorded held-out test results."
-    )
-
-
-# ==================================================
-# FRAUD DETECTION PAGE
-# ==================================================
-
-elif page == "Fraud Detection":
-
-    st.subheader("🔍 Transaction Risk Analysis")
-
-    st.caption(
-        "Enter transaction information to generate a machine learning prediction."
-    )
-
-    with st.form("fraud_form"):
-
-        col1, col2 = st.columns(2, gap="large")
-
-        with col1:
-
-            amount = st.number_input(
-                "Transaction Amount",
-                min_value=0.0,
-                value=500.0
-            )
-
-            hour = st.slider(
-                "Transaction Hour",
-                0, 23, 12
-            )
-
-            merchant = st.selectbox(
-                "Merchant Category",
-                [
-                    "Food",
-                    "Clothing",
-                    "Travel",
-                    "Grocery",
-                    "Electronics"
-                ]
-            )
-
-            foreign = st.selectbox(
-                "Foreign Transaction",
-                ["No", "Yes"]
-            )
-
-        with col2:
-
-            mismatch = st.selectbox(
-                "Location Mismatch",
-                ["No", "Yes"]
-            )
-
-            trust = st.slider(
-                "Device Trust Score",
-                25, 99, 75
-            )
-
-            velocity = st.slider(
-                "Transactions in Last 24 Hours",
-                0, 9, 2
-            )
-
-            age = st.number_input(
-                "Cardholder Age",
-                min_value=18,
-                max_value=69,
-                value=25
-            )
-
-        submitted = st.form_submit_button(
-            "🔎 Analyze Transaction"
+        fig.update_layout(
+            paper_bgcolor="#14243B",
+            plot_bgcolor="#14243B",
+            font_color="white",
+            yaxis_title="Score (%)",
+            legend_title="Metrics"
         )
 
-    # INPUT VALIDATION AND PREDICTION
-    if submitted:
+        st.plotly_chart(fig, use_container_width=True)
 
-        if amount <= 0:
+# Transaction analysis
+elif page == "🔍 Live Prediction":
 
-            st.error(
-                "Transaction amount must be greater than zero."
-            )
+    st.subheader("🔍 Transaction Analysis")
+    st.write(
+        "Enter transaction details to check whether the transaction is fraudulent."
+    )
 
-        else:
+    # Enter transaction details
+    st.markdown("### Transaction Details")
 
-            input_data = pd.DataFrame([{
-                "amount": amount,
-                "transaction_hour": hour,
-                "merchant_category": merchant,
-                "foreign_transaction": int(foreign == "Yes"),
-                "location_mismatch": int(mismatch == "Yes"),
-                "device_trust_score": trust,
-                "velocity_last_24h": velocity,
-                "cardholder_age": age
-            }])
+    col1, col2 = st.columns(2)
 
+    with col1:
+        amount = st.number_input(
+            "Transaction Amount",
+            min_value=0.0,
+            value=1000.0,
+            step=100.0
+        )
+
+        transaction_hour = st.slider(
+            "Transaction Hour",
+            min_value=0,
+            max_value=23,
+            value=12
+        )
+
+        merchant_category = st.selectbox(
+            "Merchant Category",
+            options=sorted(df["merchant_category"].dropna().unique())
+        )
+
+        foreign_transaction = st.selectbox(
+            "Foreign Transaction",
+            options=[0, 1],
+            format_func=lambda x: "Yes" if x == 1 else "No"
+        )
+
+    with col2:
+        location_mismatch = st.selectbox(
+            "Location Mismatch",
+            options=[0, 1],
+            format_func=lambda x: "Yes" if x == 1 else "No"
+        )
+
+        device_trust_score = st.slider(
+            "Device Trust Score",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.8
+        )
+
+        velocity_last_24h = st.number_input(
+            "Transactions in Last 24 Hours",
+            min_value=0,
+            value=2,
+            step=1
+        )
+
+        cardholder_age = st.number_input(
+            "Cardholder Age",
+            min_value=18,
+            max_value=100,
+            value=30
+        )
+
+    st.divider()
+
+    # Choose prediction mode
+    live_mode = st.checkbox(
+        "Enable Live Prediction",
+        value=False,
+        help="When enabled, prediction updates automatically when inputs change."
+    )
+
+    analyze_clicked = st.button(
+        "🔎 Analyze Transaction",
+        use_container_width=True
+    )
+
+    # Prepare transaction data
+    if live_mode or analyze_clicked:
+
+        input_data = pd.DataFrame([{
+            "amount": amount,
+            "transaction_hour": transaction_hour,
+            "merchant_category": merchant_category,
+            "foreign_transaction": foreign_transaction,
+            "location_mismatch": location_mismatch,
+            "device_trust_score": device_trust_score,
+            "velocity_last_24h": velocity_last_24h,
+            "cardholder_age": cardholder_age
+        }])
+
+        # Make fraud prediction
+        try:
             prediction = model.predict(input_data)[0]
+            probabilities = model.predict_proba(input_data)[0]
 
-            probability = float(
-                model.predict_proba(input_data)[0][1]
-            )
+            fraud_probability = float(probabilities[1]) * 100
 
             st.divider()
             st.subheader("Prediction Result")
 
-            result_col, gauge_col = st.columns(2)
+            result1, result2 = st.columns(2)
 
-            with result_col:
-
+            with result1:
                 if prediction == 1:
-
-                    st.error("🚨 Potential Fraud Detected")
-
-                    st.write(
-                        "The model classified this transaction as potentially fraudulent."
-                    )
-
+                    st.error("⚠️ Potential Fraud Transaction")
                 else:
-
                     st.success("✅ Genuine Transaction")
-
-                    st.write(
-                        "The model classified this transaction as genuine."
-                    )
 
                 st.metric(
                     "Fraud Probability",
-                    f"{probability * 100:.2f}%"
+                    f"{fraud_probability:.2f}%"
                 )
 
-            # FRAUD RISK GAUGE
-            with gauge_col:
+                # Show risk level
+                if fraud_probability < 30:
+                    st.success("Risk Level: LOW")
+                elif fraud_probability < 70:
+                    st.warning("Risk Level: MEDIUM")
+                else:
+                    st.error("Risk Level: HIGH")
 
-                gauge = go.Figure(
+            with result2:
+                # Show probability chart
+                fig = go.Figure(
                     go.Indicator(
                         mode="gauge+number",
-                        value=probability * 100,
-                        number={"suffix": "%"},
-                        title={"text": "Fraud Risk Score"},
+                        value=fraud_probability,
+                        title={"text": "Fraud Probability (%)"},
                         gauge={
                             "axis": {"range": [0, 100]},
-                            "bar": {"color": "#31c6db"},
+                            "bar": {"color": "#19B5FE"},
                             "steps": [
-                                {
-                                    "range": [0, 50],
-                                    "color": "#173a43"
-                                },
-                                {
-                                    "range": [50, 100],
-                                    "color": "#493047"
-                                }
+                                {"range": [0, 30], "color": "#087F65"},
+                                {"range": [30, 70], "color": "#A66A12"},
+                                {"range": [70, 100], "color": "#A83242"}
                             ]
                         }
                     )
                 )
 
-                gauge.update_layout(
-                    height=300,
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="#e8f0fc"),
-                    margin=dict(t=45, b=15, l=20, r=20)
+                fig.update_layout(
+                    paper_bgcolor="#14243B",
+                    font_color="white"
                 )
 
-                st.plotly_chart(
-                    gauge,
-                    use_container_width=True,
-                    config={"displayModeBar": False}
-                )
+                st.plotly_chart(fig, use_container_width=True)
 
-            st.caption(
-                "This model prediction is an analytical aid, "
-                "not a final financial decision."
-            )
+        except Exception as e:
+            st.error(f"Prediction could not be completed: {e}")
 
+    else:
+        st.info(
+            "Enter the transaction details and click Analyze Transaction, "
+            "or enable Live Prediction."
+        )
 
-# ==================================================
-# ABOUT PROJECT PAGE
-# ==================================================
+# About project
+elif page == "📘 About Project":
 
-elif page == "About Project":
-
-    st.subheader("📌 About FraudShield")
-
-    st.write("""
-    FraudShield is a machine learning-based credit card fraud detection
-    application designed to identify potentially suspicious transactions.
-
-    It analyzes transaction attributes such as transaction amount,
-    merchant category, device trust score, foreign transaction status,
-    location mismatch and transaction frequency.
-    """)
-
-    st.divider()
-    st.markdown("### Technology Stack")
-
-    tech1, tech2, tech3 = st.columns(3)
-
-    tech1.info("Python\n\nPandas\n\nNumPy")
-    tech2.info("Scikit-learn\n\nRandom Forest\n\nLogistic Regression")
-    tech3.info("Streamlit\n\nPlotly\n\nJoblib")
-
-    st.divider()
-    st.markdown("### Dataset Summary")
-
-    d1, d2, d3 = st.columns(3)
-
-    d1.metric("Total Records", f"{total:,}")
-    d2.metric("Fraud Records", f"{fraud:,}")
-    d3.metric("Genuine Records", f"{genuine:,}")
-
-    st.markdown("### Project Objective")
+    st.subheader("📘 About FraudShield")
 
     st.write(
-        "To demonstrate how machine learning techniques can help "
-        "identify potentially fraudulent credit card transactions."
+        "FraudShield is a machine learning based credit card fraud "
+        "detection project. It analyzes transaction details and predicts "
+        "whether a transaction may be fraudulent or genuine."
     )
 
+    st.divider()
 
-# FOOTER
+    st.markdown("### Project Objectives")
+
+    st.write("- Detect potentially fraudulent transactions.")
+    st.write("- Analyze transaction-related information.")
+    st.write("- Apply machine learning classification algorithms.")
+    st.write("- Display prediction results through an interactive dashboard.")
+
+    st.markdown("### Dataset Information")
+
+    st.write(f"- Total records: {len(df):,}")
+    st.write(f"- Total columns: {len(df.columns)}")
+    st.write("- Target column: is_fraud")
+    st.write("- Fraud class: 1")
+    st.write("- Genuine class: 0")
+
+    st.markdown("### Machine Learning Algorithms")
+
+    st.write("1. Logistic Regression")
+    st.write("2. Random Forest Classifier")
+
+    st.markdown("### Technologies Used")
+
+    st.write("- Python")
+    st.write("- Pandas")
+    st.write("- Scikit-learn")
+    st.write("- Streamlit")
+    st.write("- Plotly")
+
+    st.divider()
+
+    st.markdown("### Developed By")
+    st.markdown("**Ramandeep Rimpy**")
+    st.write("M.Tech Data Science and Analytics")
+
+# Footer
 st.divider()
 
-st.caption(
-    "🛡️ FraudShield | Credit Card Fraud Detection | ML Project"
+st.markdown(
+    """
+    <div style="text-align:center; color:#C5D2E5; padding:10px;">
+        FraudShield | Machine Learning Based Credit Card Fraud Detection
+    </div>
+    """,
+    unsafe_allow_html=True
 )

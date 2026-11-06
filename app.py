@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -17,13 +16,16 @@ st.set_page_config(
 # Load model and dataset
 BASE_DIR = Path(__file__).resolve().parent
 
+
 @st.cache_resource
 def load_model():
     return joblib.load(BASE_DIR / "models" / "fraud_model.pkl")
 
+
 @st.cache_data
 def load_data():
     return pd.read_csv(BASE_DIR / "data" / "credit_card_fraud_10k.csv")
+
 
 model = load_model()
 df = load_data()
@@ -34,18 +36,15 @@ st.markdown("""
 .stApp {
     background-color: #080F1E;
     color: #FFFFFF;
-    .block-container {
-    padding-top: 0rem !important;
+}
+
+.block-container {
+    padding-top: 1rem !important;
     padding-bottom: 1rem !important;
 }
 
 [data-testid="stHeader"] {
     background: transparent;
-}
-
-[data-testid="stToolbar"] {
-    right: 1rem;
-}
 }
 
 [data-testid="stSidebar"] {
@@ -86,13 +85,6 @@ h1, h2, h3, h4, p, label, span {
     font-weight: bold;
 }
 
-.section-card {
-    background-color: #14243B;
-    border: 1px solid #29415F;
-    border-radius: 12px;
-    padding: 18px;
-}
-
 div.stButton > button {
     background-color: #087EBC;
     color: white;
@@ -117,10 +109,6 @@ div[data-baseweb="select"] > div {
     color: white;
 }
 
-.stRadio label, .stCheckbox label {
-    color: white !important;
-}
-
 hr {
     border-color: #29415F;
 }
@@ -129,6 +117,7 @@ hr {
 
 # Sidebar menu
 with st.sidebar:
+
     st.markdown("## 🛡️ FraudShield")
     st.caption("Credit Card Fraud Detection")
     st.divider()
@@ -143,6 +132,7 @@ with st.sidebar:
     )
 
     st.divider()
+
     st.markdown("### Project Information")
     st.write("Machine Learning Based")
     st.write("Credit Card Security System")
@@ -152,76 +142,99 @@ st.markdown(
     '<div class="main-title">FraudShield</div>',
     unsafe_allow_html=True
 )
+
 st.markdown(
     '<div class="subtitle">Intelligent Credit Card Fraud Detection System</div>',
     unsafe_allow_html=True
 )
+
 st.write("")
 
-# Dashboard
 if page == "📊 Dashboard":
 
     st.subheader("📊 Project Dashboard")
-    st.write("Overview of the transaction dataset and model performance.")
+
+    st.write(
+        "Overview of the transaction dataset and model performance."
+    )
 
     total_transactions = len(df)
-    fraud_transactions = int(df["is_fraud"].sum())
-    genuine_transactions = total_transactions - fraud_transactions
-    fraud_percentage = (fraud_transactions / total_transactions) * 100
 
-    # Show dataset details
+    fraud_transactions = int(df["is_fraud"].sum())
+
+    genuine_transactions = (
+        total_transactions - fraud_transactions
+    )
+
+    fraud_percentage = (
+        fraud_transactions / total_transactions
+    ) * 100
+
+    # Dataset metrics
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.markdown(
-            f"""<div class="metric-card">
-            <div class="metric-label">Total Transactions</div>
-            <div class="metric-value">{total_transactions:,}</div>
-            </div>""",
+            f"""
+            <div class="metric-card">
+                <div class="metric-label">Total Transactions</div>
+                <div class="metric-value">{total_transactions:,}</div>
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
     with col2:
         st.markdown(
-            f"""<div class="metric-card">
-            <div class="metric-label">Genuine Transactions</div>
-            <div class="metric-value">{genuine_transactions:,}</div>
-            </div>""",
+            f"""
+            <div class="metric-card">
+                <div class="metric-label">Genuine Transactions</div>
+                <div class="metric-value">{genuine_transactions:,}</div>
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
     with col3:
         st.markdown(
-            f"""<div class="metric-card">
-            <div class="metric-label">Fraud Transactions</div>
-            <div class="metric-value">{fraud_transactions:,}</div>
-            </div>""",
+            f"""
+            <div class="metric-card">
+                <div class="metric-label">Fraud Transactions</div>
+                <div class="metric-value">{fraud_transactions:,}</div>
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
     with col4:
         st.markdown(
-            f"""<div class="metric-card">
-            <div class="metric-label">Fraud Percentage</div>
-            <div class="metric-value">{fraud_percentage:.2f}%</div>
-            </div>""",
+            f"""
+            <div class="metric-card">
+                <div class="metric-label">Fraud Percentage</div>
+                <div class="metric-value">{fraud_percentage:.2f}%</div>
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
     st.write("")
     st.divider()
 
-    # Show charts
+    # Transaction analysis
     st.subheader("Transaction Analysis")
 
     chart1, chart2 = st.columns(2)
 
     with chart1:
+
         st.markdown("#### Transaction Distribution")
 
         distribution = pd.DataFrame({
             "Transaction Type": ["Genuine", "Fraud"],
-            "Count": [genuine_transactions, fraud_transactions]
+            "Count": [
+                genuine_transactions,
+                fraud_transactions
+            ]
         })
 
         fig = px.pie(
@@ -243,9 +256,13 @@ if page == "📊 Dashboard":
             legend_title_text="Transaction Type"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch"
+        )
 
     with chart2:
+
         st.markdown("#### Transactions by Merchant Category")
 
         merchant_counts = (
@@ -253,7 +270,11 @@ if page == "📊 Dashboard":
             .value_counts()
             .reset_index()
         )
-        merchant_counts.columns = ["Merchant Category", "Count"]
+
+        merchant_counts.columns = [
+            "Merchant Category",
+            "Count"
+        ]
 
         fig = px.bar(
             merchant_counts,
@@ -271,7 +292,10 @@ if page == "📊 Dashboard":
             yaxis_title="Number of Transactions"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch"
+        )
 
     st.divider()
 
@@ -279,7 +303,7 @@ if page == "📊 Dashboard":
     st.subheader("Model Performance")
 
     st.caption(
-        "The following values are the recorded Random Forest test results."
+        "Recorded Random Forest results on the held-out test dataset."
     )
 
     m1, m2, m3, m4 = st.columns(4)
@@ -292,24 +316,34 @@ if page == "📊 Dashboard":
     ]
 
     for col, (label, value) in zip(
-        [m1, m2, m3, m4], performance
+        [m1, m2, m3, m4],
+        performance
     ):
+
         with col:
+
             st.markdown(
-                f"""<div class="metric-card">
-                <div class="metric-label">{label}</div>
-                <div class="metric-value">{value}</div>
-                </div>""",
+                f"""
+                <div class="metric-card">
+                    <div class="metric-label">{label}</div>
+                    <div class="metric-value">{value}</div>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
 
     st.write("")
+
     left, right = st.columns(2)
 
     with left:
+
         st.markdown("#### Confusion Matrix")
 
-        confusion = [[1970, 0], [5, 25]]
+        confusion = [
+            [1970, 0],
+            [5, 25]
+        ]
 
         fig = px.imshow(
             confusion,
@@ -330,13 +364,20 @@ if page == "📊 Dashboard":
             font_color="white"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch"
+        )
 
     with right:
+
         st.markdown("#### Algorithm Comparison")
 
         comparison = pd.DataFrame({
-            "Algorithm": ["Logistic Regression", "Random Forest"],
+            "Algorithm": [
+                "Logistic Regression",
+                "Random Forest"
+            ],
             "Accuracy": [95.80, 99.75],
             "Precision": [25.89, 100.00],
             "Recall": [96.67, 83.33],
@@ -346,7 +387,12 @@ if page == "📊 Dashboard":
         fig = px.bar(
             comparison,
             x="Algorithm",
-            y=["Accuracy", "Precision", "Recall", "F1 Score"],
+            y=[
+                "Accuracy",
+                "Precision",
+                "Recall",
+                "F1 Score"
+            ],
             barmode="group",
             color_discrete_sequence=[
                 "#19B5FE",
@@ -364,22 +410,26 @@ if page == "📊 Dashboard":
             legend_title="Metrics"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            width="stretch"
+        )
 
-# Transaction analysis
 elif page == "🔍 Live Prediction":
 
     st.subheader("🔍 Transaction Analysis")
+
     st.write(
-        "Enter transaction details to check whether the transaction is fraudulent."
+        "Enter transaction details to check whether "
+        "the transaction is fraudulent."
     )
 
-    # Enter transaction details
     st.markdown("### Transaction Details")
 
     col1, col2 = st.columns(2)
 
     with col1:
+
         amount = st.number_input(
             "Transaction Amount",
             min_value=0.0,
@@ -396,20 +446,79 @@ elif page == "🔍 Live Prediction":
 
         merchant_category = st.selectbox(
             "Merchant Category",
-            options=sorted(df["merchant_category"].dropna().unique())
+            options=sorted(
+                df["merchant_category"].dropna().unique()
+            )
         )
 
         foreign_transaction = st.selectbox(
             "Foreign Transaction",
             options=[0, 1],
-            format_func=lambda x: "Yes" if x == 1 else "No"
+            format_func=lambda x: (
+                "Yes" if x == 1 else "No"
+            )
         )
 
     with col2:
-        location_mismatch = st.selectbox(
-            "Location Mismatch",
-            options=[0, 1],
-            format_func=lambda x: "Yes" if x == 1 else "No"
+
+        # Location comparison
+        st.markdown("#### 📍 Location Verification")
+
+        usual_location = st.text_input(
+            "Cardholder's Usual Location",
+            value="Ludhiana",
+            placeholder="Enter usual city"
+        )
+
+        transaction_location = st.text_input(
+            "Current Transaction Location",
+            value="Ludhiana",
+            placeholder="Enter transaction city"
+        )
+
+        # Compare location names
+        usual_location_clean = (
+            usual_location.strip().casefold()
+        )
+
+        transaction_location_clean = (
+            transaction_location.strip().casefold()
+        )
+
+        if (
+            usual_location_clean
+            and transaction_location_clean
+        ):
+
+            location_mismatch = int(
+                usual_location_clean != transaction_location_clean
+            )
+
+            if location_mismatch == 1:
+
+                st.warning(
+                    "⚠️ Location Mismatch Detected: "
+                    "The transaction location differs "
+                    "from the usual location."
+                )
+
+            else:
+
+                st.success(
+                    "✅ Location Match: Both locations are the same."
+                )
+
+        else:
+
+            location_mismatch = 0
+
+            st.info(
+                "Enter both locations to compare them."
+            )
+
+        st.caption(
+            "Location is compared using manually entered city names. "
+            "This feature does not use GPS tracking."
         )
 
         device_trust_score = st.slider(
@@ -435,107 +544,168 @@ elif page == "🔍 Live Prediction":
 
     st.divider()
 
-    # Choose prediction mode
+    # Prediction mode
     live_mode = st.checkbox(
         "Enable Live Prediction",
         value=False,
-        help="When enabled, prediction updates automatically when inputs change."
+        help=(
+            "When enabled, prediction updates automatically "
+            "when inputs change."
+        )
     )
 
     analyze_clicked = st.button(
         "🔎 Analyze Transaction",
-        use_container_width=True
+        width="stretch"
     )
 
     # Prepare transaction data
     if live_mode or analyze_clicked:
 
-        input_data = pd.DataFrame([{
-            "amount": amount,
-            "transaction_hour": transaction_hour,
-            "merchant_category": merchant_category,
-            "foreign_transaction": foreign_transaction,
-            "location_mismatch": location_mismatch,
-            "device_trust_score": device_trust_score,
-            "velocity_last_24h": velocity_last_24h,
-            "cardholder_age": cardholder_age
-        }])
+        if not usual_location_clean or not transaction_location_clean:
 
-        # Make fraud prediction
-        try:
-            prediction = model.predict(input_data)[0]
-            probabilities = model.predict_proba(input_data)[0]
+            st.error(
+                "Please enter both locations before analyzing "
+                "the transaction."
+            )
 
-            fraud_probability = float(probabilities[1]) * 100
+        else:
 
-            st.divider()
-            st.subheader("Prediction Result")
+            input_data = pd.DataFrame([{
+                "amount": amount,
+                "transaction_hour": transaction_hour,
+                "merchant_category": merchant_category,
+                "foreign_transaction": foreign_transaction,
+                "location_mismatch": location_mismatch,
+                "device_trust_score": device_trust_score,
+                "velocity_last_24h": velocity_last_24h,
+                "cardholder_age": cardholder_age
+            }])
 
-            result1, result2 = st.columns(2)
+            # Make fraud prediction
+            try:
 
-            with result1:
-                if prediction == 1:
-                    st.error("⚠️ Potential Fraud Transaction")
-                else:
-                    st.success("✅ Genuine Transaction")
+                prediction = model.predict(input_data)[0]
 
-                st.metric(
-                    "Fraud Probability",
-                    f"{fraud_probability:.2f}%"
+                probabilities = model.predict_proba(
+                    input_data
+                )[0]
+
+                fraud_probability = (
+                    float(probabilities[1]) * 100
                 )
 
-                # Show risk level
-                if fraud_probability < 30:
-                    st.success("Risk Level: LOW")
-                elif fraud_probability < 70:
-                    st.warning("Risk Level: MEDIUM")
-                else:
-                    st.error("Risk Level: HIGH")
+                st.divider()
 
-            with result2:
-                # Show probability chart
-                fig = go.Figure(
-                    go.Indicator(
-                        mode="gauge+number",
-                        value=fraud_probability,
-                        title={"text": "Fraud Probability (%)"},
-                        gauge={
-                            "axis": {"range": [0, 100]},
-                            "bar": {"color": "#19B5FE"},
-                            "steps": [
-                                {"range": [0, 30], "color": "#087F65"},
-                                {"range": [30, 70], "color": "#A66A12"},
-                                {"range": [70, 100], "color": "#A83242"}
-                            ]
-                        }
+                st.subheader("Prediction Result")
+
+                result1, result2 = st.columns(2)
+
+                with result1:
+
+                    if prediction == 1:
+
+                        st.error(
+                            "⚠️ Potential Fraud Transaction"
+                        )
+
+                    else:
+
+                        st.success(
+                            "✅ Genuine Transaction"
+                        )
+
+                    st.metric(
+                        "Fraud Probability",
+                        f"{fraud_probability:.2f}%"
                     )
+
+                    # Risk level
+                    if fraud_probability < 30:
+
+                        st.success("Risk Level: LOW")
+
+                    elif fraud_probability < 70:
+
+                        st.warning("Risk Level: MEDIUM")
+
+                    else:
+
+                        st.error("Risk Level: HIGH")
+
+                with result2:
+
+                    # Fraud probability gauge
+                    fig = go.Figure(
+                        go.Indicator(
+                            mode="gauge+number",
+                            value=fraud_probability,
+                            title={
+                                "text": "Fraud Probability (%)"
+                            },
+                            gauge={
+                                "axis": {
+                                    "range": [0, 100]
+                                },
+                                "bar": {
+                                    "color": "#19B5FE"
+                                },
+                                "steps": [
+                                    {
+                                        "range": [0, 30],
+                                        "color": "#087F65"
+                                    },
+                                    {
+                                        "range": [30, 70],
+                                        "color": "#A66A12"
+                                    },
+                                    {
+                                        "range": [70, 100],
+                                        "color": "#A83242"
+                                    }
+                                ]
+                            }
+                        )
+                    )
+
+                    fig.update_layout(
+                        paper_bgcolor="#14243B",
+                        font_color="white"
+                    )
+
+                    st.plotly_chart(
+                        fig,
+                        width="stretch"
+                    )
+
+                st.caption(
+                    "Predictions are machine learning estimates "
+                    "and should not be treated as a confirmed "
+                    "fraud determination."
                 )
 
-                fig.update_layout(
-                    paper_bgcolor="#14243B",
-                    font_color="white"
+            except Exception as e:
+
+                st.error(
+                    f"Prediction could not be completed: {e}"
                 )
-
-                st.plotly_chart(fig, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Prediction could not be completed: {e}")
 
     else:
+
         st.info(
-            "Enter the transaction details and click Analyze Transaction, "
-            "or enable Live Prediction."
+            "Enter the transaction details and click "
+            "Analyze Transaction, or enable Live Prediction."
         )
 
-# About project
 elif page == "📘 About Project":
 
     st.subheader("📘 About FraudShield")
 
     st.write(
-        "FraudShield is a machine learning based credit card fraud "
-        "detection project. It analyzes transaction details and predicts "
-        "whether a transaction may be fraudulent or genuine."
+        "FraudShield is a machine learning based credit card "
+        "fraud detection project. It analyzes transaction details "
+        "and predicts whether a transaction may be fraudulent "
+        "or genuine."
     )
 
     st.divider()
@@ -571,10 +741,11 @@ elif page == "📘 About Project":
     st.divider()
 
     st.markdown("### Developed By")
+
     st.markdown("**Ramandeep Rimpy**")
+
     st.write("M.Tech Data Science and Analytics")
 
-# Footer
 st.divider()
 
 st.markdown(

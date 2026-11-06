@@ -221,6 +221,41 @@ if page == "📊 Dashboard":
     st.divider()
 
     # Transaction analysis
+    st.subheader("Transaction Insights")
+
+    avg_amount = df["amount"].mean()
+    max_amount = df["amount"].max()
+    fraud_rate = df.groupby("merchant_category")["is_fraud"].mean() * 100
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+       st.metric("Average Transaction Amount", f"₹{avg_amount:,.2f}")
+
+    with col2:
+        st.metric("Highest Transaction Amount", f"₹{max_amount:,.2f}")
+
+    st.markdown("#### Fraud Rate by Merchant Category")
+
+    fraud_rate_df = fraud_rate.reset_index()
+    fraud_rate_df.columns = ["Merchant Category", "Fraud Rate"]
+
+    fig = px.bar(
+        fraud_rate_df,
+        x="Merchant Category",
+        y="Fraud Rate",
+        color="Fraud Rate",
+        color_continuous_scale="Reds"
+    )
+
+    fig.update_layout(
+        paper_bgcolor="#14243B",
+        plot_bgcolor="#14243B",
+        font_color="white",
+        yaxis_title="Fraud Rate (%)"
+    )
+
+    st.plotly_chart(fig, width="stretch")
     st.subheader("Transaction Analysis")
 
     chart1, chart2 = st.columns(2)

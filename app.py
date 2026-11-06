@@ -431,11 +431,12 @@ elif page == "🔍 Live Prediction":
     with col1:
 
         amount = st.number_input(
-            "Transaction Amount",
-            min_value=0.0,
-            value=1000.0,
-            step=100.0
-        )
+        "Transaction Amount",
+         min_value=0.01,
+        value=1000.0,
+        step=100.0,
+        help="Transaction amount must be greater than zero."
+)
 
         transaction_hour = st.slider(
             "Transaction Hour",

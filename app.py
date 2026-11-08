@@ -18,7 +18,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @st.cache_resource
 def load_model():
-    return joblib.load(BASE_DIR / "models" / "fraud_model.pkl")
+    model_path = BASE_DIR / "models" / "fraud_model.pkl"
+    return joblib.load(model_path)
 
 
 @st.cache_data
@@ -503,12 +504,15 @@ elif page == "🔍 Live Prediction":
             "This feature does not use GPS tracking."
         )
 
+        
         device_trust_score = st.slider(
             "Device Trust Score",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.8
+            min_value=0,
+            max_value=100,
+            value=80,
+            step=1
         )
+
 
         velocity_last_24h = st.number_input(
             "Transactions in Last 24 Hours",

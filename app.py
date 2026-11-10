@@ -1,10 +1,15 @@
 
-import streamlit as st
-import pandas as pd
+import json
+from pathlib import Path
+
 import joblib
+import matplotlib.pyplot as plt
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from pathlib import Path
+import shap
+import streamlit as st
+
 
 st.set_page_config(
     page_title="FraudShield | Credit Card Security",
@@ -18,8 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @st.cache_resource
 def load_model():
-    model_path = BASE_DIR / "models" / "fraud_model.pkl"
-    return joblib.load(model_path)
+    return joblib.load(BASE_DIR / "models" / "fraud_model.pkl")
 
 
 @st.cache_data
@@ -27,8 +31,68 @@ def load_data():
     return pd.read_csv(BASE_DIR / "data" / "credit_card_fraud_10k.csv")
 
 
+@st.cache_data
+def load_metadata():
+    with open(BASE_DIR / "outputs" / "model_metadata.json", "r") as file:
+        return json.load(file)
+
+
 model = load_model()
 df = load_data()
+metadata = load_metadata()
+
+DECISION_THRESHOLD = metadata["decision_threshold"]
+FEATURES = metadata["features"]
+
+
+@st.cache_resource
+def load_shap_explainer():
+    return shap.TreeExplainer(model.named_steps["classifier"])
+
+
+def prepare_shap_values(input_frame):
+    preprocessor = model.named_steps["preprocessor"]
+
+    transformed = preprocessor.transform(input_frame)
+
+    if hasattr(transformed, "toarray"):
+        transformed = transformed.toarray()
+
+    feature_names = preprocessor.get_feature_names_out()
+
+    transformed_df = pd.DataFrame(
+        transformed,
+        columns=feature_names
+    )
+
+    explainer = load_shap_explainer()
+    shap_values = explainer.shap_values(transformed)
+
+    if isinstance(shap_values, list):
+        fraud_values = shap_values[1]
+    else:
+        fraud_values = shap_values[:, :, 1]
+
+    base_value = float(explainer.expected_value[1])
+
+    return transformed_df, fraud_values, base_value
+
+
+model_results = pd.DataFrame({
+    "Model": [
+        "Logistic Regression",
+        "Decision Tree",
+        "Random Forest"
+    ],
+    "Accuracy": [96.95, 97.35, 97.80],
+    "Precision": [18.37, 24.44, 29.41],
+    "Recall": [30.00, 36.67, 33.33],
+    "F1 Score": [22.78, 29.33, 31.25],
+    "ROC-AUC": [91.09, 71.27, 92.48],
+    "PR-AUC": [19.47, 23.33, 27.60]
+})
+
+confusion_matrix = [[1946, 24], [20, 10]]
 
 st.markdown("""
 <style>
@@ -38,8 +102,8 @@ st.markdown("""
 }
 
 .block-container {
-    padding-top: 1rem !important;
-    padding-bottom: 1rem !important;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
 }
 
 [data-testid="stHeader"] {
@@ -114,6 +178,7 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
+# Sidebar navigation
 with st.sidebar:
     st.markdown("## 🛡️ FraudShield")
     st.caption("Credit Card Fraud Detection")
@@ -145,95 +210,36 @@ st.markdown(
 
 st.write("")
 
+# Dashboard
 if page == "📊 Dashboard":
 
     st.subheader("📊 Project Dashboard")
-    st.write("Overview of the transaction dataset and model performance.")
+    st.write(
+        "Overview of the transaction dataset and machine learning model performance."
+    )
 
     total_transactions = len(df)
-    fraud_transactions = int(df["is_fraud"].sum())
-    genuine_transactions = total_transactions - fraud_transactions
-
-    fraud_percentage = (
-        fraud_transactions / total_transactions
-    ) * 100
+    fraud_count = int(df["is_fraud"].sum())
+    genuine_count = total_transactions - fraud_count
+    fraud_percentage = (fraud_count / total_transactions) * 100
 
     col1, col2, col3, col4 = st.columns(4)
 
-    metrics = [
-        ("Total Transactions", f"{total_transactions:,}"),
-        ("Genuine Transactions", f"{genuine_transactions:,}"),
-        ("Fraud Transactions", f"{fraud_transactions:,}"),
-        ("Fraud Percentage", f"{fraud_percentage:.2f}%")
-    ]
+    col1.metric("Total Transactions", f"{total_transactions:,}")
+    col2.metric("Fraud Transactions", f"{fraud_count:,}")
+    col3.metric("Genuine Transactions", f"{genuine_count:,}")
+    col4.metric("Fraud Percentage", f"{fraud_percentage:.2f}%")
 
-    for col, (label, value) in zip(
-        [col1, col2, col3, col4],
-        metrics
-    ):
-        with col:
-            st.markdown(
-                f"""
-                <div class="metric-card">
-                    <div class="metric-label">{label}</div>
-                    <div class="metric-value">{value}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-    st.write("")
     st.divider()
 
-    st.subheader("Transaction Insights")
+    left, right = st.columns(2)
 
-    avg_amount = df["amount"].mean()
-    max_amount = df["amount"].max()
-
-    fraud_rate = (
-        df.groupby("merchant_category")["is_fraud"].mean() * 100
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.metric("Average Transaction Amount", f"₹{avg_amount:,.2f}")
-
-    with col2:
-        st.metric("Highest Transaction Amount", f"₹{max_amount:,.2f}")
-
-    st.markdown("#### Fraud Rate by Merchant Category")
-
-    fraud_rate_df = fraud_rate.reset_index()
-    fraud_rate_df.columns = ["Merchant Category", "Fraud Rate"]
-
-    fig = px.bar(
-        fraud_rate_df,
-        x="Merchant Category",
-        y="Fraud Rate",
-        color="Fraud Rate",
-        color_continuous_scale="Reds"
-    )
-
-    fig.update_layout(
-        paper_bgcolor="#14243B",
-        plot_bgcolor="#14243B",
-        font_color="white",
-        yaxis_title="Fraud Rate (%)"
-    )
-
-    st.plotly_chart(fig, width="stretch")
-
-    st.subheader("Transaction Analysis")
-
-    chart1, chart2 = st.columns(2)
-
-    with chart1:
-        st.markdown("#### Transaction Distribution")
+    with left:
+        st.subheader("Transaction Distribution")
 
         distribution = pd.DataFrame({
             "Transaction Type": ["Genuine", "Fraud"],
-            "Count": [genuine_transactions, fraud_transactions]
+            "Count": [genuine_count, fraud_count]
         })
 
         fig = px.pie(
@@ -241,204 +247,189 @@ if page == "📊 Dashboard":
             names="Transaction Type",
             values="Count",
             hole=0.55,
-            color="Transaction Type",
-            color_discrete_map={
-                "Genuine": "#08BFA5",
-                "Fraud": "#F04452"
-            }
+            title="Genuine vs Fraud Transactions"
         )
 
         fig.update_layout(
-            paper_bgcolor="#14243B",
-            plot_bgcolor="#14243B",
-            font_color="white",
-            legend_title_text="Transaction Type"
-        )
-
-        st.plotly_chart(fig, width="stretch")
-
-    with chart2:
-        st.markdown("#### Transactions by Merchant Category")
-
-        merchant_counts = (
-            df["merchant_category"]
-            .value_counts()
-            .reset_index()
-        )
-
-        merchant_counts.columns = ["Merchant Category", "Count"]
-
-        fig = px.bar(
-            merchant_counts,
-            x="Merchant Category",
-            y="Count",
-            color="Count",
-            color_continuous_scale="Blues"
-        )
-
-        fig.update_layout(
-            paper_bgcolor="#14243B",
-            plot_bgcolor="#14243B",
-            font_color="white",
-            xaxis_title="Merchant Category",
-            yaxis_title="Number of Transactions"
-        )
-
-        st.plotly_chart(fig, width="stretch")
-
-    st.divider()
-
-    st.subheader("Model Performance")
-
-    st.caption(
-        "Decision Tree performance on the held-out test dataset."
-    )
-
-    m1, m2, m3, m4 = st.columns(4)
-
-    performance = [
-        ("Accuracy", "99.95%"),
-        ("Precision", "96.77%"),
-        ("Recall", "100%"),
-        ("F1 Score", "98.36%")
-    ]
-
-    for col, (label, value) in zip(
-        [m1, m2, m3, m4],
-        performance
-    ):
-        with col:
-            st.markdown(
-                f"""
-                <div class="metric-card">
-                    <div class="metric-label">{label}</div>
-                    <div class="metric-value">{value}</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-    st.success("Best Performing Model: Decision Tree Classifier")
-
-    st.write("")
-
-    left, right = st.columns(2)
-
-    with left:
-        st.markdown("#### Decision Tree Confusion Matrix")
-
-        confusion = [
-            [1969, 1],
-            [0, 30]
-        ]
-
-        fig = px.imshow(
-            confusion,
-            text_auto=True,
-            labels={
-                "x": "Predicted",
-                "y": "Actual",
-                "color": "Transactions"
-            },
-            x=["Genuine", "Fraud"],
-            y=["Genuine", "Fraud"],
-            color_continuous_scale="Blues"
-        )
-
-        fig.update_layout(
-            paper_bgcolor="#14243B",
-            plot_bgcolor="#14243B",
+            paper_bgcolor="#080F1E",
+            plot_bgcolor="#080F1E",
             font_color="white"
         )
 
         st.plotly_chart(fig, width="stretch")
 
     with right:
-        st.markdown("#### Algorithm Comparison")
-
-        comparison = pd.DataFrame({
-            "Algorithm": [
-                "Logistic Regression",
-                "Decision Tree",
-                "Random Forest"
-            ],
-            "Accuracy": [95.80, 99.95, 99.75],
-            "Precision": [25.89, 96.77, 100.00],
-            "Recall": [96.67, 100.00, 83.33],
-            "F1 Score": [40.85, 98.36, 90.91]
-        })
+        st.subheader("Fraud Distribution")
 
         fig = px.bar(
-            comparison,
-            x="Algorithm",
-            y=[
-                "Accuracy",
-                "Precision",
-                "Recall",
-                "F1 Score"
-            ],
-            barmode="group",
-            color_discrete_sequence=[
-                "#19B5FE",
-                "#9B59B6",
-                "#08BFA5",
-                "#F39C12"
-            ]
+            distribution,
+            x="Transaction Type",
+            y="Count",
+            color="Transaction Type",
+            text="Count",
+            title="Number of Transactions"
         )
 
         fig.update_layout(
-            paper_bgcolor="#14243B",
-            plot_bgcolor="#14243B",
+            paper_bgcolor="#080F1E",
+            plot_bgcolor="#080F1E",
             font_color="white",
-            yaxis_title="Score (%)",
-            legend_title="Metrics"
+            showlegend=False
         )
 
         st.plotly_chart(fig, width="stretch")
 
     st.divider()
 
-    st.subheader("Model Comparison Summary")
+    st.subheader("Model Performance Comparison")
 
-    summary = pd.DataFrame({
-        "Model": [
-            "Logistic Regression",
-            "Decision Tree",
-            "Random Forest"
-        ],
-        "Accuracy": ["95.80%", "99.95%", "99.75%"],
-        "Precision": ["25.89%", "96.77%", "100.00%"],
-        "Recall": ["96.67%", "100.00%", "83.33%"],
-        "F1 Score": ["40.85%", "98.36%", "90.91%"],
-        "ROC-AUC": ["99.33%", "99.97%", "100.00%"]
-    })
+    st.caption(
+        "All metrics are calculated on the same held-out test dataset."
+    )
 
     st.dataframe(
-        summary,
+        model_results.style.format({
+            "Accuracy": "{:.2f}%",
+            "Precision": "{:.2f}%",
+            "Recall": "{:.2f}%",
+            "F1 Score": "{:.2f}%",
+            "ROC-AUC": "{:.2f}%",
+            "PR-AUC": "{:.2f}%"
+        }),
         width="stretch",
         hide_index=True
     )
 
+    st.subheader("Model Metric Comparison")
+
+    metric_choice = st.selectbox(
+        "Select performance metric",
+        ["Accuracy", "Precision", "Recall", "F1 Score", "ROC-AUC", "PR-AUC"]
+    )
+
+    fig = px.bar(
+        model_results,
+        x="Model",
+        y=metric_choice,
+        color="Model",
+        text=metric_choice,
+        title=f"{metric_choice} Comparison"
+    )
+
+    fig.update_layout(
+        paper_bgcolor="#080F1E",
+        plot_bgcolor="#080F1E",
+        font_color="white",
+        showlegend=False
+    )
+
+    st.plotly_chart(fig, width="stretch")
+
+    st.divider()
+
+    st.subheader("Random Forest Confusion Matrix")
+
+    cm = go.Figure(
+        data=go.Heatmap(
+            z=confusion_matrix,
+            x=["Predicted Genuine", "Predicted Fraud"],
+            y=["Actual Genuine", "Actual Fraud"],
+            text=confusion_matrix,
+            texttemplate="%{text}",
+            colorscale="Blues",
+            showscale=True
+        )
+    )
+
+    cm.update_layout(
+        paper_bgcolor="#080F1E",
+        plot_bgcolor="#080F1E",
+        font_color="white",
+        xaxis_title="Predicted Class",
+        yaxis_title="Actual Class"
+    )
+
+    st.plotly_chart(cm, width="stretch")
+
+    st.caption(
+        "The confusion matrix represents the Random Forest model's "
+        "held-out test results."
+    )
+
+    st.divider()
+
+    st.subheader("SHAP Explainability")
+    st.write(
+        "This plot shows how different transaction features influence "
+        "the Random Forest fraud predictions."
+    )
+
+    try:
+        shap_sample = df[FEATURES].sample(
+            n=min(200, len(df)),
+            random_state=42
+        )
+
+        shap_features, shap_values, base_value = prepare_shap_values(
+            shap_sample
+        )
+
+        shap.summary_plot(
+            shap_values,
+            shap_features,
+            max_display=8,
+            plot_size=(8, 4),
+            show=False
+        )
+
+        fig = plt.gcf()
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+
+    except Exception as error:
+        st.warning(f"SHAP summary plot could not be generated: {error}")
+
+    st.subheader("Dataset Preview")
+
+    st.dataframe(
+        df.head(10),
+        width="stretch",
+        hide_index=True
+    )
+
+# Live Prediction
 elif page == "🔍 Live Prediction":
 
     st.subheader("🔍 Transaction Analysis")
 
     st.write(
-        "Enter transaction details to check whether "
-        "the transaction is fraudulent."
+        "Enter transaction details to estimate the possibility of credit card fraud."
     )
 
-    st.markdown("### Transaction Details")
+    merchant_categories = sorted(
+        df["merchant_category"].dropna().astype(str).unique().tolist()
+    )
+
+    amount_max = max(
+        5000.0,
+        float(df["amount"].max())
+    )
+
+    velocity_max = max(
+        50,
+        int(df["velocity_last_24h"].max())
+    )
 
     col1, col2 = st.columns(2)
 
     with col1:
         amount = st.number_input(
             "Transaction Amount",
-            min_value=0.01,
-            value=1000.0,
-            step=100.0,
-            help="Transaction amount must be greater than zero."
+            min_value=0.0,
+            max_value=amount_max,
+            value=500.0,
+            step=50.0
         )
 
         transaction_hour = st.slider(
@@ -450,74 +441,23 @@ elif page == "🔍 Live Prediction":
 
         merchant_category = st.selectbox(
             "Merchant Category",
-            options=sorted(
-                df["merchant_category"].dropna().unique()
-            )
-        )
-
-        foreign_transaction = st.selectbox(
-            "Foreign Transaction",
-            options=[0, 1],
-            format_func=lambda x: "Yes" if x == 1 else "No"
+            merchant_categories
         )
 
     with col2:
-        st.markdown("#### 📍 Location Verification")
-
-        usual_location = st.text_input(
-            "Cardholder's Usual Location",
-            value="Ludhiana",
-            placeholder="Enter usual city"
-        )
-
-        transaction_location = st.text_input(
-            "Current Transaction Location",
-            value="Ludhiana",
-            placeholder="Enter transaction city"
-        )
-
-        usual_location_clean = usual_location.strip().casefold()
-        transaction_location_clean = transaction_location.strip().casefold()
-
-        if usual_location_clean and transaction_location_clean:
-
-            location_mismatch = int(
-                usual_location_clean != transaction_location_clean
-            )
-
-            if location_mismatch == 1:
-                st.warning(
-                    "⚠️ Location Mismatch Detected: "
-                    "The transaction location differs from the usual location."
-                )
-            else:
-                st.success(
-                    "✅ Location Match: Both locations are the same."
-                )
-
-        else:
-            location_mismatch = 0
-            st.info("Enter both locations to compare them.")
-
-        st.caption(
-            "Location is compared using manually entered city names. "
-            "This feature does not use GPS tracking."
-        )
-
-        
         device_trust_score = st.slider(
             "Device Trust Score",
-            min_value=0,
-            max_value=100,
-            value=80,
-            step=1
+            min_value=0.0,
+            max_value=1.0,
+            value=0.8,
+            step=0.05
         )
-
 
         velocity_last_24h = st.number_input(
             "Transactions in Last 24 Hours",
             min_value=0,
-            value=2,
+            max_value=velocity_max,
+            value=min(2, velocity_max),
             step=1
         )
 
@@ -525,140 +465,193 @@ elif page == "🔍 Live Prediction":
             "Cardholder Age",
             min_value=18,
             max_value=100,
-            value=30
+            value=30,
+            step=1
         )
 
     st.divider()
-
-    live_mode = st.checkbox(
-        "Enable Live Prediction",
-        value=False,
-        help="When enabled, prediction updates automatically when inputs change."
-    )
 
     analyze_clicked = st.button(
         "🔎 Analyze Transaction",
         width="stretch"
     )
 
-    if live_mode or analyze_clicked:
+    if analyze_clicked:
 
-        if not usual_location_clean or not transaction_location_clean:
-            st.error(
-                "Please enter both locations before analyzing the transaction."
+        input_values = {
+            "amount": amount,
+            "transaction_hour": transaction_hour,
+            "merchant_category": merchant_category,
+            "device_trust_score": device_trust_score,
+            "velocity_last_24h": velocity_last_24h,
+            "cardholder_age": cardholder_age
+        }
+
+        input_data = pd.DataFrame(
+            [[input_values[feature] for feature in FEATURES]],
+            columns=FEATURES
+        )
+
+        try:
+            probabilities = model.predict_proba(input_data)[0]
+
+            fraud_class_index = list(model.classes_).index(1)
+
+            fraud_probability = float(
+                probabilities[fraud_class_index]
             )
 
-        else:
-            input_data = pd.DataFrame([{
-                "amount": amount,
-                "transaction_hour": transaction_hour,
-                "merchant_category": merchant_category,
-                "foreign_transaction": foreign_transaction,
-                "location_mismatch": location_mismatch,
-                "device_trust_score": device_trust_score,
-                "velocity_last_24h": velocity_last_24h,
-                "cardholder_age": cardholder_age
-            }])
+            prediction = int(
+                fraud_probability >= DECISION_THRESHOLD
+            )
+
+            st.divider()
+            st.subheader("Prediction Result")
+
+            result1, result2 = st.columns(2)
+
+            with result1:
+                if prediction == 1:
+                    st.error("⚠️ Potential Fraud Transaction")
+                else:
+                    st.success("✅ Likely Genuine Transaction")
+
+                st.metric(
+                    "Fraud Probability",
+                    f"{fraud_probability * 100:.2f}%"
+                )
+
+                st.metric(
+                    "Decision Threshold",
+                    f"{DECISION_THRESHOLD * 100:.2f}%"
+                )
+
+            with result2:
+                gauge = go.Figure(
+                    go.Indicator(
+                        mode="gauge+number",
+                        value=fraud_probability * 100,
+                        title={"text": "Fraud Probability (%)"},
+                        number={"suffix": "%"},
+                        gauge={
+                            "axis": {"range": [0, 100]},
+                            "bar": {"color": "#19B5FE"},
+                            "threshold": {
+                                "line": {"color": "#FFFFFF", "width": 3},
+                                "thickness": 0.8,
+                                "value": DECISION_THRESHOLD * 100
+                            },
+                            "steps": [
+                                {"range": [0, 30], "color": "#087F65"},
+                                {"range": [30, 60], "color": "#A66A12"},
+                                {"range": [60, 100], "color": "#A83242"}
+                            ]
+                        }
+                    )
+                )
+
+                gauge.update_layout(
+                    paper_bgcolor="#14243B",
+                    font_color="white"
+                )
+
+                st.plotly_chart(gauge, width="stretch")
+
+            st.divider()
+            st.subheader("Individual Transaction Explanation")
 
             try:
-                prediction = model.predict(input_data)[0]
-
-                probabilities = model.predict_proba(input_data)[0]
-
-                fraud_class_index = list(model.classes_).index(1)
-                fraud_probability = (
-                    float(probabilities[fraud_class_index]) * 100
+                shap_features, shap_values, base_value = prepare_shap_values(
+                    input_data
                 )
 
-                st.divider()
-                st.subheader("Prediction Result")
+                explanation = shap.Explanation(
+                    values=shap_values[0],
+                    base_values=base_value,
+                    data=shap_features.iloc[0].values,
+                    feature_names=shap_features.columns.tolist()
+                )
 
-                result1, result2 = st.columns(2)
+                shap.plots.waterfall(
+                    explanation,
+                    max_display=8,
+                    show=False
+                )
 
-                with result1:
-                    if prediction == 1:
-                        st.error("⚠️ Potential Fraud Transaction")
-                    else:
-                        st.success("✅ Genuine Transaction")
-
-                    st.metric(
-                        "Fraud Probability",
-                        f"{fraud_probability:.2f}%"
-                    )
-
-                    if fraud_probability < 30:
-                        st.success("Risk Level: LOW")
-                    elif fraud_probability < 70:
-                        st.warning("Risk Level: MEDIUM")
-                    else:
-                        st.error("Risk Level: HIGH")
-
-                with result2:
-                    fig = go.Figure(
-                        go.Indicator(
-                            mode="gauge+number",
-                            value=fraud_probability,
-                            title={"text": "Fraud Probability (%)"},
-                            gauge={
-                                "axis": {"range": [0, 100]},
-                                "bar": {"color": "#19B5FE"},
-                                "steps": [
-                                    {"range": [0, 30], "color": "#087F65"},
-                                    {"range": [30, 70], "color": "#A66A12"},
-                                    {"range": [70, 100], "color": "#A83242"}
-                                ]
-                            }
-                        )
-                    )
-
-                    fig.update_layout(
-                        paper_bgcolor="#14243B",
-                        font_color="white"
-                    )
-
-                    st.plotly_chart(fig, width="stretch")
+                fig = plt.gcf()
+                fig.set_size_inches(8, 4)
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=False)
+                plt.close(fig)
 
                 st.caption(
-                    "Predictions are machine learning estimates "
-                    "and should not be treated as a confirmed fraud determination."
+                    "The waterfall plot explains how individual features "
+                    "influence the model's fraud prediction."
                 )
 
-            except Exception as e:
-                st.error(f"Prediction could not be completed: {e}")
+            except Exception as error:
+                st.warning(
+                    f"Individual SHAP explanation unavailable: {error}"
+                )
+
+            st.subheader("Transaction Details")
+
+            st.dataframe(
+                input_data,
+                width="stretch",
+                hide_index=True
+            )
+
+            st.caption(
+                "This result is a machine learning estimate, not a confirmed "
+                "fraud determination. The prediction uses the selected model "
+                "and its validation-based decision threshold."
+            )
+
+        except Exception as error:
+            st.error(f"Prediction could not be completed: {error}")
 
     else:
         st.info(
-            "Enter the transaction details and click Analyze Transaction, "
-            "or enable Live Prediction."
+            "Enter the transaction details and click Analyze Transaction."
         )
 
+# About Project
 elif page == "📘 About Project":
 
     st.subheader("📘 About FraudShield")
 
     st.write(
-        "FraudShield is a machine learning based credit card "
-        "fraud detection project. It analyzes transaction details "
-        "and predicts whether a transaction may be fraudulent or genuine."
+        "FraudShield is a machine learning based credit card fraud detection "
+        "system. It analyzes transaction characteristics and estimates "
+        "whether a transaction may be fraudulent or genuine."
     )
 
     st.divider()
 
     st.markdown("### Project Objectives")
 
-    st.write("- Detect potentially fraudulent transactions.")
-    st.write("- Analyze transaction-related information.")
+    st.write("- Identify potentially fraudulent transactions.")
+    st.write("- Analyze transaction-related patterns.")
     st.write("- Apply machine learning classification algorithms.")
-    st.write("- Compare model performance using classification metrics.")
-    st.write("- Display prediction results through an interactive dashboard.")
+    st.write("- Compare models using multiple evaluation metrics.")
+    st.write("- Provide an interactive transaction prediction interface.")
+    st.write("- Explain model predictions using SHAP.")
 
     st.markdown("### Dataset Information")
 
     st.write(f"- Total records: {len(df):,}")
     st.write(f"- Total columns: {len(df.columns)}")
+    st.write(f"- Fraud transactions: {int(df['is_fraud'].sum()):,}")
+    st.write(f"- Genuine transactions: {int((df['is_fraud'] == 0).sum()):,}")
     st.write("- Target column: is_fraud")
     st.write("- Fraud class: 1")
     st.write("- Genuine class: 0")
+
+    st.markdown("### Selected Input Features")
+
+    for feature in FEATURES:
+        st.write(f"- {feature}")
 
     st.markdown("### Machine Learning Algorithms")
 
@@ -666,15 +659,24 @@ elif page == "📘 About Project":
     st.write("2. Decision Tree Classifier")
     st.write("3. Random Forest Classifier")
 
-    st.success("Best Performing Model: Decision Tree Classifier")
+    st.success(
+        f"Selected Model: {metadata['best_model']}"
+    )
+
+    st.write(
+        f"Decision Threshold: {DECISION_THRESHOLD:.4f}"
+    )
 
     st.markdown("### Technologies Used")
 
     st.write("- Python")
-    st.write("- Pandas")
+    st.write("- Pandas and NumPy")
     st.write("- Scikit-learn")
     st.write("- Streamlit")
     st.write("- Plotly")
+    st.write("- Matplotlib")
+    st.write("- SHAP")
+    st.write("- Joblib")
 
     st.divider()
 

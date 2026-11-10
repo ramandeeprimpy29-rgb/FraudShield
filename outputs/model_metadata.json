@@ -1,0 +1,15 @@
+{
+    "best_model": "Random Forest",
+    "decision_threshold": 0.5933832620719354,
+    "validation_f1": 0.5373134328353263,
+    "features": [
+        "amount",
+        "transaction_hour",
+        "merchant_category",
+        "device_trust_score",
+        "velocity_last_24h",
+        "cardholder_age"
+    ],
+    "target": "is_fraud",
+    "random_state": 42
+}

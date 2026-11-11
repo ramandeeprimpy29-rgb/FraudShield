@@ -6,7 +6,7 @@ FraudShield is a machine learning-based credit card fraud detection system devel
 
 The project uses multiple classification algorithms and compares their performance to select a suitable model. It also provides an interactive Streamlit dashboard for transaction prediction, model evaluation, and explainable AI-based insights.
 
-The selected model is a Random Forest Classifier.
+The selected model is a Random Forest Classifier
 
 ## 2. Key Features
 
